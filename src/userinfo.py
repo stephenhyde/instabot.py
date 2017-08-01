@@ -26,13 +26,19 @@ class UserInfo:
         }
     }
 
-    def __init__(self, info_aggregator="ink361"):
+    def __init__(self, proxy="", info_aggregator="ink361"):
         self.i_a = info_aggregator
-        self.hello()
+        self.hello(proxy)
 
-    def hello(self):
+    def hello(self, proxy):
         self.s = requests.Session()
         self.s.headers.update({'User-Agent': self.user_agent})
+        if proxy!="":
+            proxies = {
+              'http': 'http://'+proxy,
+              'https': 'http://'+proxy,
+            }
+            self.s.proxies.update(proxies)        
         main = self.s.get(self.url_list[self.i_a]["main"])
         if main.status_code == 200:
             return True
@@ -149,11 +155,9 @@ ui.search_user(user_name="danbilzerian")
 # or if you know user_id ui.search_user(user_id="50417061")
 print(ui.user_name)
 print(ui.user_id)
-
 # get following list with no limit
 ui.get_following()
 print(ui.following)
-
 # get followers list with limit 10
 ui.get_followers(limit=10)
 print(ui.followers)

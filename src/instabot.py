@@ -16,26 +16,20 @@ import time
 import requests
 from unfollow_protocol import unfollow_protocol
 from userinfo import UserInfo
-
+from db import instabot_db
 
 class InstaBot:
     """
     Instagram bot v 1.1.0
     like_per_day=1000 - How many likes set bot in one day.
-
     media_max_like=0 - Don't like media (photo or video) if it have more than
     media_max_like likes.
-
     media_min_like=0 - Don't like media (photo or video) if it have less than
     media_min_like likes.
-
     tag_list = ['cat', 'car', 'dog'] - Tag list to like.
-
     max_like_for_one_tag=5 - Like 1 to max_like_for_one_tag times by row.
-
     log_mod = 0 - Log mod: log_mod = 0 log to console, log_mod = 1 log to file,
     log_mod = 2 no log.
-
     https://github.com/LevPasha/instabot.py
     """
 
@@ -58,9 +52,9 @@ class InstaBot:
     # If instagram ban you - query return 400 error.
     error_400 = 0
     # If you have 3 400 error in row - looks like you banned.
-    error_400_to_ban = 3
+    error_400_to_ban = 60
     # If InstaBot think you are banned - going to sleep.
-    ban_sleep_time = 2 * 60 * 60
+    ban_sleep_time = 0
 
     # All counter.
     bot_mode = 0
@@ -71,8 +65,6 @@ class InstaBot:
     current_user = 'hajka'
     current_index = 0
     current_id = 'abcds'
-    # List of user_id, that bot follow
-    bot_follow_list = []
     user_info_list = []
     user_list = []
     ex_user_list = []
@@ -161,6 +153,10 @@ class InstaBot:
         self.unfollow_per_day = unfollow_per_day
         if self.unfollow_per_day != 0:
             self.unfollow_delay = self.time_in_day / self.unfollow_per_day
+        
+        #how many time to keep the followed users in my follow list
+        #in here I'll keep unfollw users for one day before unfollow
+        self.unfollow_time_interval = 24 * 60 * 60
 
         # Comment
         self.comments_per_day = comments_per_day
@@ -204,6 +200,7 @@ class InstaBot:
         self.populate_user_blacklist()
         signal.signal(signal.SIGTERM, self.cleanup)
         atexit.register(self.cleanup)
+        self.db = instabot_db()
 
     def populate_user_blacklist(self):
         for user in self.user_blacklist:
@@ -298,23 +295,11 @@ class InstaBot:
             self.write_log("Logout error!")
 
     def cleanup(self, *_):
-        # Unfollow all bot follow
-        if self.follow_counter >= self.unfollow_counter:
-            for f in self.bot_follow_list:
-                log_string = "Trying to unfollow: %s" % (f[0])
-                self.write_log(log_string)
-                self.unfollow_on_cleanup(f[0])
-                sleeptime = random.randint(self.unfollow_break_min,
-                                           self.unfollow_break_max)
-                log_string = "Pausing for %i seconds... %i of %i" % (
-                    sleeptime, self.unfollow_counter, self.follow_counter)
-                self.write_log(log_string)
-                time.sleep(sleeptime)
-                self.bot_follow_list.remove(f)
-
+        # Don't need unfollow all bot follows at this time as data restored        
         # Logout
         if (self.login_status):
             self.logout()
+        self.db.close()
         exit(0)
 
     def get_media_id_by_tag(self, tag):
@@ -330,6 +315,11 @@ class InstaBot:
                     all_data = json.loads(r.text)
 
                     self.media_by_tag = list(all_data['tag']['media']['nodes'])
+                    #ignore if already follow/unfollow the media's owner
+                    for m in self.media_by_tag:
+                        user_id = m['owner']['id']
+                        if self.db.is_followed(self.user_login,user_id):
+                            self.media_by_tag.remove(m)
                 except:
                     self.media_by_tag = []
                     self.write_log("Except on get_media!")
@@ -610,24 +600,25 @@ class InstaBot:
             self.write_log(log_string)
 
             if self.follow(self.media_by_tag[0]["owner"]["id"]) != False:
-                self.bot_follow_list.append(
-                    [self.media_by_tag[0]["owner"]["id"], time.time()])
+                self.db.follow(self.user_login, int(self.media_by_tag[0]["owner"]["id"]))     
                 self.next_iteration["Follow"] = time.time() + \
                                                 self.add_time(self.follow_delay)
 
     def new_auto_mod_unfollow(self):
         if time.time() > self.next_iteration["Unfollow"] and \
-                        self.unfollow_per_day != 0 and len(self.bot_follow_list) > 0:
+                        self.unfollow_per_day != 0:
             if self.bot_mode == 0:
-                for f in self.bot_follow_list:
-                    if time.time() > (f[1] + self.follow_time):
-                        log_string = "Trying to unfollow #%i: " % (
-                            self.unfollow_counter + 1)
-                        self.write_log(log_string)
-                        self.auto_unfollow()
-                        self.bot_follow_list.remove(f)
-                        self.next_iteration["Unfollow"] = time.time() + \
-                                                          self.add_time(self.unfollow_delay)
+                  log_string = "Trying to unfollow #%i: " % (
+                      self.unfollow_counter + 1)
+                  self.write_log(log_string)
+                  user_id, user_name, insert_time = self.db.get_next_unfollower(self.user_login, self.unfollow_time_interval)
+                  if user_id == 0:
+                      self.write_log('Currently no user can be unfollowed.')
+                  else:
+                      if self.unfollow(user_id):
+                          self.db.unfollow(self.user_login, user_id)
+                          self.next_iteration["Unfollow"] = time.time() + \
+                                                            self.add_time(self.unfollow_delay)
             if self.bot_mode == 1:
                 unfollow_protocol(self)
 
