@@ -153,7 +153,7 @@ class InstaBot:
         self.unfollow_per_day = unfollow_per_day
         if self.unfollow_per_day != 0:
             self.unfollow_delay = self.time_in_day / self.unfollow_per_day
-        
+
         #how many time to keep the followed users in my follow list
         #in here I'll keep unfollw users for one day before unfollow
         self.unfollow_time_interval = 24 * 60 * 60
@@ -295,7 +295,7 @@ class InstaBot:
             self.write_log("Logout error!")
 
     def cleanup(self, *_):
-        # Don't need unfollow all bot follows at this time as data restored        
+        # Don't need unfollow all bot follows at this time as data restored
         # Logout
         if (self.login_status):
             self.logout()
@@ -507,6 +507,9 @@ class InstaBot:
                     log_string = "Unfollow: %s #%i." % (user_id,
                                                         self.unfollow_counter)
                     self.write_log(log_string)
+		else:
+		    log_string = "Unable to unfollow user, status code: #%i" % (unfollow.status_code)
+		    self.write_log(log_string)
                 return unfollow
             except:
                 self.write_log("Exept on unfollow!")
@@ -600,7 +603,7 @@ class InstaBot:
             self.write_log(log_string)
 
             if self.follow(self.media_by_tag[0]["owner"]["id"]) != False:
-                self.db.follow(self.user_login, int(self.media_by_tag[0]["owner"]["id"]))     
+                self.db.follow(self.user_login, int(self.media_by_tag[0]["owner"]["id"]))
                 self.next_iteration["Follow"] = time.time() + \
                                                 self.add_time(self.follow_delay)
 
@@ -619,6 +622,11 @@ class InstaBot:
                           self.db.unfollow(self.user_login, user_id)
                           self.next_iteration["Unfollow"] = time.time() + \
                                                             self.add_time(self.unfollow_delay)
+		      else:
+			  log_string = "Delaying next unfollow"
+			  self.write_log(log_string)
+			  self.next_iteration["Unfollow"] = time.time() + \
+							    self.add_time(7200)
             if self.bot_mode == 1:
                 unfollow_protocol(self)
 
@@ -834,3 +842,4 @@ class InstaBot:
                 self.logger.info(log_text)
             except UnicodeEncodeError:
                 print("Your text has unicode problem!")
+    

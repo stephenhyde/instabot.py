@@ -2,8 +2,8 @@ import sqlite3
 import time
 
 class instabot_db:
-     
-    conn = sqlite3.connect('/home/innwadmin/instanetwork/instabot-instanetwork/instabot.py/src/instabot.db')
+
+    conn = sqlite3.connect('/home/innwadmin/instanetwork/instabot/instabot.py/src/instabot.db')
     cursor = conn.cursor()
 
     def __init__(self):
@@ -11,7 +11,7 @@ class instabot_db:
 
     def get_next_unfollower(self, user_name, ufollow_interval):
         unfollow_time = time.time() - ufollow_interval
-        user = self.cursor.execute("select  userid, username, insert_time from users where isfollowed = '1' and username = ? and insert_time < ? order by insert_time limit 1", (user_name, unfollow_time,))
+        user = self.cursor.execute("select  userid, username, insert_time from users where isfollowed = '1' and username = ? and insert_time < ? order by RANDOM() limit 1", (user_name, unfollow_time,))
         u = user.fetchone()
         if u is not None and len(u) > 0:
             return u[0], u[1], u[2]
@@ -27,7 +27,7 @@ class instabot_db:
         self.conn.commit()
 
     def follow(self, user_name, user_id):
-        self.cursor.execute("insert into users (userid, username, isfollowed, insert_time) values (%i, '%s', '1', %f)" %(user_id, user_name, time.time())) 
+        self.cursor.execute("insert into users (userid, username, isfollowed, insert_time) values (%i, '%s', '1', %f)" %(user_id, user_name, time.time()))
         self.conn.commit()
 
     def close(self):
