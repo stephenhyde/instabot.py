@@ -3,7 +3,7 @@ import time
 
 class instabot_db:
 
-    conn = sqlite3.connect('/home/innwadmin/instanetwork/instabot/instabot.py/src/instabot.db')
+    conn = sqlite3.connect('/home/innwadmin/instabot.py/src/instabot.db')
     #conn = sqlite3.connect('/Users/stephen.hyde/repositories/instabot.py/src/instabot.db')
     cursor = conn.cursor()
 
