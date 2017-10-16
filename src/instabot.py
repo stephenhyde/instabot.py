@@ -476,6 +476,8 @@ class InstaBot:
                     self.follow_counter += 1
                     log_string = "Followed: %s #%i." % (user_id, self.follow_counter)
                     self.write_log(log_string)
+                else:
+                    self.write_log(follow.text)
                 return follow
             except:
                 self.write_log("Except on follow!")
@@ -495,6 +497,7 @@ class InstaBot:
                 else:
                     log_string = "Unable to unfollow user, status code: #%i" % unfollow.status_code
                     self.write_log(log_string)
+                    self.write_log(unfollow.text)
                 return unfollow
             except:
                 self.write_log("Exept on unfollow!")
@@ -545,7 +548,9 @@ class InstaBot:
             if self.follow(self.media_by_tag[0]["owner"]["id"]):
                 self.db.follow(self.user_login, int(self.media_by_tag[0]["owner"]["id"]))
                 self.next_iteration["Follow"] = time.time() + self.add_time(self.follow_delay)
-
+            else:
+                self.write_log('Followed failed. Delaying next follow for 30 mins.')
+                self.next_iteration["Follow"] = time.time() + self.add_time(1800)
             del self.media_by_tag[0]
 
     def new_auto_mod_unfollow(self):
@@ -557,7 +562,8 @@ class InstaBot:
             user_id, user_name, insert_time = self.db.get_next_unfollower(self.user_login,
                                                                           self.unfollow_time_interval)
             if user_id == 0:
-                self.write_log('Currently no user can be unfollowed.')
+                self.write_log('Currently no user can be unfollowed. Delaying next unfollow for 30 mins')
+                self.next_iteration["Unfollow"] = time.time() + self.add_time(1800)
             else:
                 if self.unfollow(user_id):
                     self.db.unfollow(self.user_login, user_id)

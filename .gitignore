@@ -97,3 +97,5 @@ ENV/
 # IDEs
 .idea/
 *.iml
+
+src/instabot.db
