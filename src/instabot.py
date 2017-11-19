@@ -189,7 +189,7 @@ class InstaBot:
         self.write_log(log_string)
         self.login()
         self.user_follower_count = self.get_follower_count(self.user_login)
-        print self.user_follower_count
+        self.write_log("Starting Follower Count %s " % self.user_follower_count)
         self.populate_user_blacklist()
         signal.signal(signal.SIGTERM, self.cleanup)
         atexit.register(self.cleanup)
