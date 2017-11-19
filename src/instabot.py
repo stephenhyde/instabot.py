@@ -92,6 +92,7 @@ class InstaBot:
                  media_max_like=50,
                  media_min_like=0,
                  follow_per_day=0,
+                 max_follow_count=0,
                  follow_time=5 * 60 * 60,
                  unfollow_per_day=0,
                  comment_list=[["this", "the", "your"],
@@ -155,6 +156,8 @@ class InstaBot:
         self.media_max_like = media_max_like
         # Don't like if media have less than n likes.
         self.media_min_like = media_min_like
+        # Max followers allowed
+        self.max_follow_count = max_follow_count
         # Auto mod seting:
         # Default list of tag.
         self.tag_list = tag_list
@@ -185,6 +188,8 @@ class InstaBot:
                      (now_time.strftime("%d.%m.%Y %H:%M"))
         self.write_log(log_string)
         self.login()
+        self.user_follower_count = self.get_follower_count(self.user_login)
+        print self.user_follower_count
         self.populate_user_blacklist()
         signal.signal(signal.SIGTERM, self.cleanup)
         atexit.register(self.cleanup)
@@ -195,11 +200,9 @@ class InstaBot:
             user_id_url = self.URL_USER_DETAIL % user
             info = self.s.get(user_id_url)
 
-            # prevent error if 'Account of user was deleted or link is invalid
-            from json import JSONDecodeError
             try:
                 all_data = json.loads(info.text)
-            except JSONDecodeError as e:
+            except Exception as e:
                 self.write_log('Account of user %s was deleted or link is '
                                'invalid' % user)
             else:
@@ -292,7 +295,6 @@ class InstaBot:
 
     def get_media_id_by_tag(self, tag):
         """ Get media ID set, by your hashtag """
-
         if self.login_status:
             log_string = "Get media id by tag: %s" % tag
             self.write_log(log_string)
@@ -307,7 +309,9 @@ class InstaBot:
                     # ignore if already follow/unfollow the media's owner
                     for m in media:
                         user_id = m['owner']['id']
-                        if not self.db.is_followed(self.user_login, user_id):
+                        user_detail = self.get_url_media_detail(m['code'])
+                        is_followed = user_detail['graphql']['shortcode_media']['owner']['followed_by_viewer']
+                        if not self.db.is_followed(self.user_login, user_id) and not is_followed:
                             self.media_by_tag.append(m)
                 except Exception as e:
                     print(e)
@@ -474,6 +478,7 @@ class InstaBot:
                 follow = self.s.post(url_follow)
                 if follow.status_code == 200:
                     self.follow_counter += 1
+                    self.user_follower_count += 1
                     log_string = "Followed: %s #%i." % (user_id, self.follow_counter)
                     self.write_log(log_string)
                 else:
@@ -491,6 +496,7 @@ class InstaBot:
                 unfollow = self.s.post(url_unfollow)
                 if unfollow.status_code == 200:
                     self.unfollow_counter += 1
+                    self.user_follower_count -= 1
                     log_string = "Unfollow: %s #%i." % (user_id,
                                                         self.unfollow_counter)
                     self.write_log(log_string)
@@ -542,6 +548,13 @@ class InstaBot:
             if self.media_by_tag[0]["owner"]["id"] == self.user_id:
                 self.write_log("Keep calm - It's your own profile ;)")
                 return
+
+            if self.user_follower_count >= self.max_follow_count:
+                self.write_log("Follower count %i exceeds max follower count %i, delaying next follow for 30 mins"
+                               % (self.user_follower_count, self.max_follow_count))
+                self.next_iteration["Follow"] = time.time() + self.add_time(1800)
+                return
+
             log_string = "Trying to follow: %s" % (self.media_by_tag[0]["owner"]["id"])
             self.write_log(log_string)
 
@@ -613,6 +626,17 @@ class InstaBot:
                 del self.media_by_tag[0]
                 return True
         return False
+
+    def get_url_media_detail(self, media_code):
+        url_check = self.URL_MEDIA_DETAIL % media_code
+        media_detail = self.s.get(url_check)
+        return json.loads(media_detail.text)
+
+    def get_follower_count(self, username):
+        url_check = self.URL_USER_DETAIL % username
+        response = self.s.get(url_check)
+        user_detail = json.loads(response.text)
+        return int(user_detail['user']['follows']['count'])
 
     def write_log(self, log_text):
         """ Write log by print() or logger """

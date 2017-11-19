@@ -12,11 +12,12 @@ password = sys.argv[2]
 like_per_day = int(sys.argv[3])
 follow_per_day = int(sys.argv[4])
 unfollow_per_day = int(sys.argv[5])
-media_min_like = int(sys.argv[6])
-max_like_for_one_tag = int(sys.argv[7])
-proxy = sys.argv[8]
+max_follow_count = int(sys.argv[6])
+media_min_like = int(sys.argv[7])
+max_like_for_one_tag = int(sys.argv[8])
+proxy = sys.argv[9]
 tag_list = []
-for x in range(9, len(sys.argv)):
+for x in range(10, len(sys.argv)):
     tag_list.append(sys.argv[x])
 
 bot = InstaBot(
@@ -28,7 +29,8 @@ bot = InstaBot(
     follow_per_day=follow_per_day,
     unfollow_per_day=unfollow_per_day,
     proxy=proxy,
-    media_min_like=media_min_like)
+    media_min_like=media_min_like,
+    max_follow_count=max_follow_count)
 
 while True:
     bot.new_auto_mod()
